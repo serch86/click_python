@@ -3,15 +3,15 @@
 
 # libreria de analisis de datos y una caracterizacion para su facil lectura.
 import pandas as pd
-pd.set_option('display.float_format', lambda x: '%.5f' % x)
+pd.set_option('display.float_format', lambda x: '%.4f' % x)
 pd.set_option('max_rows', 100)
 pd.set_option('max_columns', 40)
 pd.set_option('display.max_colwidth', -1)
 # libreria de generacion de rede y cliques
-import networkx as nx,community
+import networkx as nx, community
 
 # libreria de calculo de distancia euclidiana
-from scipy.spatial.distance import pdist, squareform,euclidean
+from scipy.spatial.distance import pdist, euclidean
 
 # libreria de mate
 import numpy as np
@@ -23,10 +23,6 @@ import itertools as it
 import sys
 sys.path.append('math_tricks/')
 import math_vect_tools as mvt
-
-#libreria para correr dssp desde bash
-import subprocess as sp
-
 
 # funcion de lectura con biopandas
 # def read_biopdb(path):
@@ -68,7 +64,7 @@ def distancia_entre_atomos(df_atoms):
     return(df_distancias)
 
 
-def gen_3_cliques(df_distancias, nombre, dth=10, k=3):
+def gen_3_cliques(df_distancias, nombre=False, dth=10, k=3):
     """Genera n-cliques de dataframe de distancias, tomando en cuenta los enlaces menores o iguales
     a dth y forma los k-cliques que elijas 
     valores por default:
@@ -89,11 +85,11 @@ def gen_3_cliques(df_distancias, nombre, dth=10, k=3):
 #     print(n_cliques)
 
     lista_cliques = []
-    for i,v in enumerate(cliques_completos):
+    for i, v in enumerate(cliques_completos):
         a = list(it.combinations(v, k))
         for j in a:
             if set(j) not in lista_cliques:
-                #recuerda que para comparar elementos utiliza set, y apilalos como set
+                # recuerda que para comparar elementos utiliza set, y apilalos como set
                 lista_cliques.append(set(j))
 
     df_cliques = pd.DataFrame(lista_cliques)
@@ -103,19 +99,17 @@ def gen_3_cliques(df_distancias, nombre, dth=10, k=3):
     df_maximal_clique['numero_elementos'] = df_maximal_clique.count(1)
     df_maximal_clique.sort_values('numero_elementos', inplace=True)
 
-    nx.write_gexf(red,nombre+'.gexf')
+    if nombre:
+        print('guardando red en: %s' % nombre)
+        nx.write_gexf(red, nombre+'.gexf')
 
     return(df_cliques, df_maximal_clique)
 
 
-def create_ss_table(list_residues,chain_code = 'A'):
-    ss_list = []
-    num_resi_list = []
-    chain_list = []
-    for i in list_residues:
-        ss_list.append(i.ss)
-        num_resi_list.append(i.resi)
-        chain_list.append(i.chain)
+def create_ss_table(list_residues, chain_code = 'A'):
+    ss_list = [i.ss for i in list_residues]
+    num_resi_list = [i.resi for i in list_residues]
+    chain_list = [i.chain for i in list_residues]
 
     ss = pd.DataFrame()
     ss['structure'] = ss_list
@@ -178,7 +172,7 @@ def SSM(ss1,ss2):
     ss1: string (H,B,C)
     ss2: string (H,B,C)
     devuelve el score: int (0,1,2)"""
-    def get_score_from_table(ss1,ss2):
+    def get_score_from_table(ss1, ss2):
 
         if (ss1 == 'H') and (ss2 == 'B'):
             score_ss = 2
@@ -393,7 +387,7 @@ def calculate_rmsd_rot_trans_m(residuos, array_cliques1, array_cliques2, num_cli
     res1, res2 = residuos
 
     def R_ij(i, j, a1=0, a2=0):
-        """Recuerda que 0-->1,1-->2,2-->2 en los indices de R
+        """Recuerda que 0-->1,1-->2,2-->3 en los indices de R
         a1,a2 corresponden a que atomo quieren que se compare
         """
         idx_vec_gorro1, idx_vec_gorro2 = 2, 2 + num_cliques
