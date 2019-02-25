@@ -31,7 +31,8 @@ class Residue(object):
       """Store residue info
               Rememer that the Atom Class is accessed through Residue.
               Atoms are defined as attributes of the Residue."""
-      def __init__(self, resi, resn, chain, ss=None, atomnames=None, atoms=None, ngb=None):
+      def __init__(self, resi, resn, chain, ss=None, atomnames=None,
+                   atoms=None, ngb=None, center_mass=None):
           self.resi = int(resi)
           self.resn = resn
           self.chain = chain
@@ -42,6 +43,8 @@ class Residue(object):
              self.atoms = []
           if ngb is None:
               self.ngb = []
+          if center_mass is None:
+              self.center_mass = []
 
       def __iter__(self):
           return self
@@ -258,7 +261,7 @@ class PdbStruct(object):
               data.append(res_rfact/float(len(atom_names)))
           return data
 
-      def GetAtomPos(self,atoms_to_consider='CA', setofinterest=None):
+      def GetAtomPos(self, atoms_to_consider='CA', setofinterest=None):
           """ Return an array with the coordinates of the requested main chain atoms.
               Default is consider the c-alpha atom and all the residues"""
           # checking atom name
@@ -328,9 +331,18 @@ class PdbStruct(object):
                  res_nex = self.GetRes(index+1)
               except:
                  continue
-              phi = dihedral(getattr(res_pre,'C').coord,getattr(res,'N').coord,getattr(res,'CA').coord,getattr(res,'C').coord)
-              psi = dihedral(getattr(res,'N').coord,getattr(res,'CA').coord,getattr(res,'C').coord,getattr(res_nex,'N').coord)
-              self.GetRes(index).SetDihe(phi-180,psi-180)
+
+              # modif Serch
+              # phi = dihedral(getattr(res_pre,'C').coord,getattr(res,'N').coord,getattr(res,'CA').coord,getattr(res,'C').coord)
+              # psi = dihedral(getattr(res,'N').coord,getattr(res,'CA').coord,getattr(res,'C').coord,getattr(res_nex,'N').coord)
+              #modif Serch
+              phi = dihedral(res_pre.GetAtom('C').coord, res.GetAtom('N').coord, res.GetAtom('CA').coord,
+                             res.GetAtom('C').coord)
+              psi = dihedral(res.GetAtom('N').coord, res.GetAtom('CA').coord, res.GetAtom('C').coord,
+                             res_nex.GetAtom('N').coord)
+
+              self.GetRes(index).SetDihe(phi-180, psi-180)
+
 
       def SetRfactor(self , new_data):
           """ Asign external values to a pdb. Specific to put the new value in the B-factor value of the CA.
@@ -344,16 +356,32 @@ class PdbStruct(object):
               self.GetRes(index).UpDateValue('rfact',new_data[c])
               c += 1
 
-      def Set_SS(self, dssp_file=False):
+      def set_center_mass(self):
+          """
+          Get the center mass of the side chain and save it as an atributte of the residue.
+          center_mass is the avarage coord of the atoms in the side chain
+          :return set atributte of center_mass:
+          """
+          for res in self.GetResChain():
+              mass_center = [res.GetAtom(
+                  atom).coord for atom in res.atomnames if atom not in ['CA', 'O', 'C', 'H']]
+              center_mass = np.array(mass_center).mean(0)
+              setattr(res, 'center_mass', center_mass)
+
+
+      def Set_SS(self, dssp_file=False, flag_tray=False):
           dic_ss = {' ': 'C', 'B': 'B', 'E': 'B',
                     'G': 'H', 'H': 'H', 'I': 'H',
                     'T': 'C', 'S': 'C', 'C': 'C'}
           if not dssp_file:
-             temp_name = '%s' % self.name
-             # self.WriteToFile(temp_name)
-             sp.run(['dssp', '-i', temp_name, '-o', temp_name[:-4]+'.dssp'])
+              if flag_tray:
+                temp_name = flag_tray
+              else:
+                temp_name = '%s' % self.name
+                # self.WriteToFile(temp_name)
+                sp.run(['dssp', '-i', temp_name, '-o', temp_name+'.dssp'])
 
-          data = open(temp_name[:-4]+'.dssp').readlines()
+          data = open(temp_name+'.dssp').readlines()
           flag = False
 
           for line in data:
@@ -366,11 +394,14 @@ class PdbStruct(object):
                     resi = int(line.split()[1])
                  except ValueError:
                     continue
-                 chain = line.split()[2]
+                 if flag_tray:
+                    chain = ''
+                 else:
+                    chain = line.split()[2]
                  ss = line[16:17]
                  res = self.GetRes(resi)
                  if res.chain == chain:
-                      setattr(res, 'ss', dic_ss[ss])
+                     setattr(res, 'ss', dic_ss[ss])
 
 
       def RenameResidues(self, list_of_new_names):
@@ -396,10 +427,10 @@ class PdbStruct(object):
              out_data.write("MODEL\n")
           if file_out_name is None and not flag_trj:
              file_out_name = self.name
-             out_data = open('%s.pdb'%file_out_name,'w')
+             out_data = open('%s.pdb'%file_out_name, 'w')
           if type(file_out_name) == str:
-             out_data = open('%s.pdb'%file_out_name,'w')
-          out_data.write("REMARK %s writen by me. \n"%self.name)
+             out_data = open('%s.pdb'%file_out_name, 'w')
+          out_data.write("REMARK %s writen by me. \n" % self.name)
           #for index in [ int(i.resi) for i in self.pdbdata ][1:-1]:
           for index in [ int(i.resi) for i in self.pdbdata ]:
               res = self.GetRes(index)
@@ -418,7 +449,10 @@ class PdbStruct(object):
                   line += "%6.2f"%atom.occup
                   line += "%6.2f"%atom.rfact
                   line += "         "
-                  line += "%3s"%atom.element
+                  if (atom.element == "O1-") or (atom.element == "N1+"):
+                      line += " %3s" % atom.element.replace("1", "")
+                  else:
+                      line += "%3s"%atom.element
                   out_data.write("%s\n"%line)
           if flag_trj:
              out_data.write("ENDMDL\n")
@@ -445,7 +479,7 @@ class Trajectory(object):
              self.current += 1
              return self.frames[self.current - 1]
 
-      def ResetIter( self , start = 0):
+      def ResetIter( self, start=0):
           self.current = start
 
       def WriteTraj(self , out_name , str_frame = 1 ):
