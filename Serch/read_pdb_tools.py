@@ -50,7 +50,7 @@ class Residue(object):
       def __iter__(self):
           return self
 
-      def next(self): # Python 3: def __next__(self)
+      def next(self):  # Python 3: def __next__(self)
           if self.current > self.end:
              raise StopIteration
           else:
@@ -81,28 +81,28 @@ class Residue(object):
 
       def GetMainChainCoord(self):
           """ Get coordinates of the mainchain atoms (N,CA,C) as numpy array."""
-          return np.array([self.N.coord, self.CA.coord, self.C.coord])
+          return np.array([self.GetAtom('N').coord, self.GetAtom('CA').coord, self.GetAtom('C').coord])
 
       def SetDihe(self, phi, psi):
           """ Assign phi and psi dihedral values to current residue."""
           setattr(self, 'phi', float(phi))
           setattr(self, 'psi', float(psi))
 
-      def UpDateValue(self,property_to_change,value):
+      def UpDateValue(self, property_to_change, value):
           """ Re-assign values associated with a given attribute.
               Remember that the Atom Class is accessed through Residue.
               Atoms are defined as attributes of the Residue."""
           for atom_in_res in self.atomnames:
-              current_atom = getattr(self,atom_in_res)
+              current_atom = self.GetAtom(atom_in_res)
               if property_to_change == 'coord':
-                 setattr(current_atom,property_to_change, value)
+                 setattr(current_atom, property_to_change, value)
               else:
-                 setattr(current_atom,property_to_change, float(value))
+                 setattr(current_atom, property_to_change, float(value))
 
       def GetAtom(self,atom_name):
           return [self.atoms[i] for i in range(self.atomwithin) if self.atomnames[i] == atom_name ][0]
 
-      def UpDateName(self,property_to_change,new_name):
+      def UpDateName(self,property_to_change, new_name):
           """ Re-name a given attribute."""
           setattr(self, property_to_change, new_name)
 
@@ -112,8 +112,8 @@ class Residue(object):
           a = normalize_vec(self.GetAtom('CA').coord - n)
           t = np.cross(c,a)
           angle = np.cos(118.2*np.pi/180.)
-          equ = np.array([[a[0],a[1],a[2]],\
-                          [c[0],c[1],c[2]],\
+          equ = np.array([[a[0],a[1],a[2]],
+                          [c[0],c[1],c[2]],
                           [t[0],t[1],t[2]]])
           sol = np.array([[angle],[angle],[0.0]])
           h = np_linalg.solve(equ,sol)
@@ -184,17 +184,11 @@ class PdbStruct(object):
                  coord = [float(line[30:38]), float(line[38:46]), float(line[46:54])]
                  r_fact = float(line[60:66])
                  occup = float("".join(line[57:61].split()))
-                 if line[21] == ' ':
-                    flag_no_chain = True
-                 else:
-                    flag_no_chain = False
+                 # se modifico para hacerlo por posicion en el pdb
+                 aton = line[13:17].split()[0]
+                 resn = line[17:22].split()[0]
+                 resi = line[23:29]
                  line = line.split()
-                 aton = line[2]
-                 resn = line[3]
-                 if flag_no_chain:
-                    resi = line[4]
-                 else:
-                    resi = line[5]
                  element = line[-1]
                  if not resi == tmp_resi:
                     res_count += 1
@@ -210,7 +204,6 @@ class PdbStruct(object):
           self.current = 0
           self.end = self.seqlength
           self.chains = chains_in_data
-
 
       def PrintPdbInfo(self):
           """ Print information regarding the number of residues and frame"""
@@ -385,10 +378,12 @@ class PdbStruct(object):
               if flag_tray:
                 temp_name = flag_tray
               else:
+                print(self.name)
                 temp_name = '%s' % self.name
                 # self.WriteToFile(temp_name)
                 sp.run(['dssp', '-i', temp_name, '-o', temp_name+'.dssp'])
 
+          temp_name = dssp_file
           data = open(temp_name+'.dssp').readlines()
           flag = False
 
@@ -594,7 +589,7 @@ class Trajectory(object):
                       res = fr.GetRes(index)
                       atom = getattr(res,atn)
                       temp_coor.append(getattr(atom,'coord'))
-                      #temp_rfact.append((getattr(atom,'rfact') - store_dist_data[i][0])/store_dist_data[i][1])
+                      # temp_rfact.append((getattr(atom,'rfact') - store_dist_data[i][0])/store_dist_data[i][1])
                       temp_rfact.append((getattr(atom,'rfact')))
                   ave_coor = np.average(np.array(temp_coor),axis=0)
                   std_coor = np.std(np.array(temp_coor),axis=0)
