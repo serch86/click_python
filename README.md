@@ -11,3 +11,6 @@ Con algunas modificaciones:
 	+ filtros de angulos dihedrales
 	+ filtros de ES (Estructura Secundaria)
 
+click_align.py es el codigo que ejecuta el alineamiento le tienes que indicar la direccion de los 2 pdb's y un cutoff que consiste en el filtro de los angulos dihefrales un ejemplo seria
+
+python click_align.py /Expermientos/pdbs/1FFT_B_1FFT_G/1FFT_B.pdb /Expermientos/pdbs/1FFT_B_1FFT_G/1FFT_G.pdb 5
